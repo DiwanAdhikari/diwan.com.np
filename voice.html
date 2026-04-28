@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DIWAN.EXE — ASP.NET DEVELOPER</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --g:#00ff41;--g2:#00aa2a;--g3:rgba(0,255,65,0.08);
+  --a:#ffb300;--c:#00e5ff;--r:#ff3131;
+  --bg:#050505;--bg2:#0d0d0d;--bg3:#111;
+  --tx:#a8f0a8;--mt:#3a6a3a;
+}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);color:var(--tx);
+  font-family:'Share Tech Mono',monospace;
+  font-size:15px;line-height:1.7;overflow-x:hidden;cursor:none;
+}
+#cursor{
+  position:fixed;width:16px;height:16px;
+  border:1.5px solid var(--g);pointer-events:none;z-index:99999;
+  transform:translate(-50%,-50%);transition:width .12s,height .12s,border-color .12s;
+  mix-blend-mode:screen;
+}
+#cursor-dot{
+  position:fixed;width:4px;height:4px;background:var(--g);border-radius:50%;
+  pointer-events:none;z-index:99999;transform:translate(-50%,-50%);
+  mix-blend-mode:screen;
+}
+#trail-canvas{position:fixed;inset:0;pointer-events:none;z-index:9990;mix-blend-mode:screen;}
+#matrix-canvas{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.16;}
+#crt{
+  position:fixed;inset:0;pointer-events:none;z-index:9995;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.3) 0,rgba(0,0,0,.3) 1px,transparent 1px,transparent 3px);
+}
+#crt::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.65) 100%);
+}
+#tooltip{
+  position:fixed;background:var(--bg2);border:1px solid var(--g);
+  color:var(--g);font-family:'Share Tech Mono',monospace;font-size:11px;
+  padding:4px 10px;letter-spacing:2px;pointer-events:none;
+  z-index:9992;opacity:0;transition:opacity .15s;white-space:nowrap;
+}
+
+/* BOOT */
+#boot{
+  position:fixed;inset:0;background:var(--bg);z-index:99998;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  font-family:'Share Tech Mono',monospace;
+}
+#boot.done{opacity:0;pointer-events:none;transition:opacity .5s .3s;}
+.bl{color:var(--g);font-size:13px;letter-spacing:2px;opacity:0;transition:opacity .3s;}
+.bl.show{opacity:1;}
+.boot-wrap{width:300px;border:1px solid var(--g2);padding:2px;margin-top:8px;}
+.boot-fill{height:10px;background:var(--g);width:0;transition:width 1.8s ease;}
+.boot-pct{color:var(--g2);font-size:11px;text-align:center;margin-top:4px;}
+
+/* KEYFRAMES */
+@keyframes flicker{0%,94%,100%{opacity:1;}95%{opacity:.75;}97%{opacity:1;}98%{opacity:.6;}99%{opacity:1;}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes rgbShift{
+  0%,100%{text-shadow:2px 0 0 rgba(255,0,0,.4),-2px 0 0 rgba(0,0,255,.4),0 0 14px var(--g2);}
+  50%{text-shadow:-2px 0 0 rgba(255,0,0,.4),2px 0 0 rgba(0,0,255,.4),0 0 22px var(--g2);}
+}
+@keyframes glitch1{
+  0%,90%,100%{clip-path:none;transform:none;}
+  91%{clip-path:polygon(0 20%,100% 20%,100% 36%,0 36%);transform:translate(-3px,0);}
+  93%{clip-path:polygon(0 60%,100% 60%,100% 72%,0 72%);transform:translate(3px,0);}
+  95%{clip-path:none;transform:translate(-1px,0);}
+}
+@keyframes glitch2{
+  0%,88%,100%{opacity:0;}
+  89%{opacity:.6;transform:translate(4px,0);clip-path:polygon(0 30%,100% 30%,100% 50%,0 50%);}
+  91%{opacity:.3;transform:translate(-4px,0);clip-path:polygon(0 65%,100% 65%,100% 76%,0 76%);}
+  93%{opacity:0;}
+}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes scanMove{
+  0%{background-position:0 0}
+  100%{background-position:0 4px}
+}
+@keyframes rippleOut{to{transform:scale(5);opacity:0;}}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  background:rgba(3,3,3,.96);border-bottom:1px solid var(--g2);
+  padding:10px 48px;display:flex;align-items:center;justify-content:space-between;
+}
+.nav-logo{
+  font-family:'Press Start 2P',monospace;font-size:9px;color:var(--g);
+  letter-spacing:2px;text-shadow:0 0 10px var(--g);animation:flicker 8s infinite;
+}
+.nav-links{display:flex;gap:32px;list-style:none;}
+.nav-links a{
+  color:var(--mt);text-decoration:none;font-size:12px;letter-spacing:3px;
+  text-transform:uppercase;transition:color .15s;position:relative;
+}
+.nav-links a::after{
+  content:'';position:absolute;bottom:-3px;left:0;
+  width:0;height:1px;background:var(--g);transition:width .2s;
+}
+.nav-links a:hover,.nav-links a.active{color:var(--g);}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%;}
+
+/* SECTIONS */
+section{padding:100px 48px 60px;max-width:980px;margin:0 auto;position:relative;z-index:2;}
+
+/* HERO */
+#hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:120px;}
+.pre-title{color:var(--a);font-size:12px;letter-spacing:5px;margin-bottom:14px;}
+.pre-title::before{content:'> ';color:var(--g);}
+.h-name-wrap{position:relative;display:inline-block;margin-bottom:12px;}
+.hero-name{
+  font-family:'VT323',monospace;font-size:clamp(64px,10vw,118px);
+  color:var(--g);line-height:1;display:block;
+  animation:rgbShift 4s ease-in-out infinite,flicker 9s infinite;
+}
+.hero-ghost{
+  position:absolute;top:0;left:0;
+  font-family:'VT323',monospace;font-size:clamp(64px,10vw,118px);
+  color:#ff3131;line-height:1;opacity:0;pointer-events:none;
+  animation:glitch2 5s infinite;
+}
+.hero-role{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--c);letter-spacing:4px;margin-bottom:26px;}
+.hero-desc{max-width:500px;opacity:.85;margin-bottom:36px;font-size:14px;}
+.hero-desc .blink::after{content:'█';animation:blink 1s infinite;color:var(--g);font-size:12px;}
+.btn-group{display:flex;gap:14px;flex-wrap:wrap;}
+.btn{
+  display:inline-block;padding:11px 26px;
+  font-family:'Share Tech Mono',monospace;font-size:12px;
+  letter-spacing:3px;text-transform:uppercase;text-decoration:none;
+  border:1px solid var(--g);color:var(--g);cursor:none;
+  background:transparent;transition:all .2s;position:relative;overflow:hidden;
+}
+.btn span{position:relative;z-index:1;}
+.btn::before{
+  content:'';position:absolute;inset:0;background:var(--g);
+  transform:scaleX(0);transform-origin:left;transition:transform .25s ease;
+}
+.btn:hover{color:var(--bg);}
+.btn:hover::before{transform:scaleX(1);}
+.btn-a{border-color:var(--a);color:var(--a);}
+.btn-a::before{background:var(--a);}
+
+/* CORNER DECO (hero right) */
+.cdeco{
+  position:absolute;right:-20px;top:50%;transform:translateY(-50%);
+  width:260px;height:260px;opacity:.1;border:1px solid var(--g);
+  animation:flicker 7s infinite;pointer-events:none;
+}
+.cdeco::before{content:'';position:absolute;inset:24px;border:1px solid var(--g);}
+.cdeco::after{content:'';position:absolute;inset:48px;border:1px solid var(--g);}
+
+/* SECTION HEADER */
+.sh{display:flex;align-items:center;gap:14px;margin-bottom:44px;}
+.sh-num{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--g2);}
+.sh-title{font-family:'VT323',monospace;font-size:44px;color:var(--g);text-shadow:0 0 12px var(--g2);letter-spacing:4px;}
+.sh-line{flex:1;height:1px;background:linear-gradient(90deg,var(--g2),transparent);}
+
+/* TERMINAL BOX */
+.tbox{background:var(--bg2);border:1px solid var(--g2);padding:28px;position:relative;transition:border-color .2s,box-shadow .2s;}
+.tbox:hover{border-color:var(--g);box-shadow:0 0 20px var(--g3);}
+.tbox-bar{
+  position:absolute;top:0;left:0;right:0;height:28px;
+  background:#161616;border-bottom:1px solid var(--g2);
+  display:flex;align-items:center;gap:6px;padding:0 12px;
+}
+.dot{width:8px;height:8px;border-radius:50%;}
+.dot-r{background:#ff5f57;}.dot-y{background:#febc2e;}.dot-g2{background:#28c840;}
+.tbox-label{margin-left:6px;font-size:11px;color:var(--mt);letter-spacing:2px;text-transform:uppercase;}
+.tbox-body{margin-top:32px;}
+.t-line{margin-bottom:5px;}
+.prompt{color:var(--g);}.cmd{color:var(--a);}.tout{color:var(--tx);opacity:.85;}
+.blink::after{content:'█';animation:blink 1s infinite;color:var(--g);}
+
+/* ABOUT */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;}
+
+/* SKILLS */
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px;}
+.sk-group{background:var(--bg2);border:1px solid var(--mt);padding:22px;transition:border-color .2s;}
+.sk-group:hover{border-color:var(--g);}
+.sg-head{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--a);letter-spacing:2px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--mt);}
+.sk-item{display:flex;flex-direction:column;margin-bottom:10px;font-size:13px;}
+.sk-row{display:flex;align-items:center;gap:8px;}
+.sk-row::before{content:'▸';color:var(--g);font-size:10px;}
+.sk-bar-bg{height:2px;background:#1e1e1e;margin-top:4px;margin-left:16px;}
+.sk-bar{height:2px;background:var(--g);width:0;transition:width 1.2s ease;}
+
+/* PROJECTS */
+.proj-grid{display:flex;flex-direction:column;gap:22px;}
+.proj{
+  background:var(--bg2);border:1px solid var(--mt);padding:26px;
+  position:relative;transition:border-color .2s,box-shadow .2s,transform .18s;overflow:hidden;
+}
+.proj::before{
+  content:'';position:absolute;top:0;left:-110%;width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--g),transparent);transition:left .45s;
+}
+.proj:hover::before{left:110%;}
+.proj:hover{border-color:var(--g);box-shadow:0 0 24px var(--g3);transform:translateX(5px);}
+.proj-id{position:absolute;top:12px;right:16px;font-family:'Press Start 2P',monospace;font-size:7px;color:var(--mt);}
+.proj h3{font-family:'VT323',monospace;font-size:30px;color:var(--g);margin-bottom:6px;}
+.proj p{color:var(--tx);opacity:.8;margin-bottom:14px;font-size:14px;}
+.tags{display:flex;flex-wrap:wrap;gap:7px;}
+.tag{padding:3px 9px;border:1px solid var(--g2);color:var(--g2);font-size:11px;letter-spacing:1px;transition:border-color .2s,color .2s;}
+.proj:hover .tag{border-color:var(--g);color:var(--g);}
+
+/* EDUCATION */
+.edu-list{display:flex;flex-direction:column;gap:18px;}
+.edu{padding:20px 22px;border-left:2px solid var(--g);background:var(--bg2);transition:background .2s,padding-left .2s;}
+.edu:hover{background:#141414;padding-left:28px;}
+.edu h3{font-family:'VT323',monospace;font-size:28px;color:var(--a);margin-bottom:4px;}
+.edu span{color:var(--mt);font-size:13px;letter-spacing:1px;}
+
+/* CONTACT */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;}
+.form-group{margin-bottom:18px;}
+.form-group label{display:block;color:var(--g2);font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;}
+.form-group input,.form-group textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--mt);
+  color:var(--tx);font-family:'Share Tech Mono',monospace;font-size:14px;
+  padding:10px 13px;outline:none;resize:vertical;transition:border-color .2s;
+}
+.form-group input:focus,.form-group textarea:focus{border-color:var(--g);}
+.c-details{display:flex;flex-direction:column;justify-content:center;gap:22px;}
+.ci{display:flex;align-items:center;gap:14px;}
+.ci-icon{font-size:18px;color:var(--g);width:28px;text-align:center;}
+.ci-lbl{color:var(--mt);font-size:11px;letter-spacing:2px;text-transform:uppercase;}
+.ci-val{color:var(--c);font-size:14px;}
+.ci-val a{color:inherit;text-decoration:none;}
+.ci-val a:hover{text-shadow:0 0 6px var(--c);}
+
+/* FOOTER */
+footer{text-align:center;padding:28px 20px;border-top:1px solid var(--mt);color:var(--mt);font-size:12px;letter-spacing:2px;position:relative;z-index:2;}
+footer span{color:var(--g);}
+
+/* REVEAL */
+.rev{opacity:0;transform:translateY(20px);transition:opacity .55s ease,transform .55s ease;}
+.rev.vis{opacity:1;transform:none;}
+
+/* CLICK RIPPLE */
+.ripple{
+  position:fixed;border-radius:50%;background:rgba(0,255,65,.12);
+  transform:scale(0);animation:rippleOut .55s ease forwards;pointer-events:none;z-index:9993;
+}
+
+@media(max-width:640px){
+  nav{padding:10px 20px;}.nav-links{gap:14px;}
+  section{padding:80px 20px 40px;}
+  .about-grid,.contact-grid{grid-template-columns:1fr;}
+  .cdeco{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- BOOT -->
+<div id="boot">
+  <div class="bl" id="b0">BIOS v2.1.4 — HARDWARE INIT...</div>
+  <div class="bl" id="b1">MEMORY CHECK: 640KB ........ OK</div>
+  <div class="bl" id="b2">LOADING PORTFOLIO.EXE</div>
+  <div class="bl" id="b3">SYSTEM READY — WELCOME</div>
+  <div class="boot-wrap"><div class="boot-fill" id="bfill"></div></div>
+  <div class="boot-pct" id="bpct">0%</div>
+</div>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-dot"></div>
+<div id="tooltip"></div>
+
+<!-- CANVASES -->
+<canvas id="matrix-canvas"></canvas>
+<canvas id="trail-canvas"></canvas>
+
+<!-- CRT OVERLAY -->
+<div id="crt"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">DA://v1.0</div>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="cdeco"></div>
+  <p class="pre-title rev">SYSTEM ONLINE — PORTFOLIO.EXE LOADED</p>
+  <div class="h-name-wrap rev">
+    <span class="hero-name">Diwan Adhikari</span>
+    <span class="hero-ghost" aria-hidden="true">Diwan Adhikari</span>
+  </div>
+  <p class="hero-role rev">Full Stack Dev &amp; ASP.NET Expert</p>
+  <p class="hero-desc rev" id="hero-desc"><span class="blink"></span></p>
+  <div class="btn-group rev">
+    <a href="#projects" class="btn"><span>My Works</span></a>
+    <a href="#contact" class="btn btn-a"><span>Contact Me</span></a>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="sh rev"><span class="sh-num">01</span><h2 class="sh-title">ABOUT_ME</h2><div class="sh-line"></div></div>
+  <div class="about-grid rev">
+    <div>
+      <p style="margin-bottom:14px;opacity:.85;font-size:14px;">Full-stack developer specializing in scalable, high-performance web applications using the ASP.NET ecosystem.</p>
+      <p style="opacity:.85;font-size:14px;">Expertise in ASP.NET Core MVC and Web APIs with clean architecture principles. Strong background in SQL Server, PostgreSQL, C#, and modern web technologies. Clean code. Performance first. Built to scale.</p>
+    </div>
+    <div class="tbox">
+      <div class="tbox-bar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g2"></div>
+        <span class="tbox-label">terminal — diwan@portfolio:~</span>
+      </div>
+      <div class="tbox-body">
+        <div class="t-line"><span class="prompt">$ </span><span class="cmd">whoami</span></div>
+        <div class="t-line"><span class="tout">diwan.adhikari — full stack dev</span></div>
+        <div class="t-line" style="margin-top:10px"><span class="prompt">$ </span><span class="cmd">cat contact.txt</span></div>
+        <div class="t-line" style="margin-top:4px"><a href="mailto:deewaan101@gmail.com" style="color:var(--c);text-decoration:none;font-size:13px;">✉  deewaan101@gmail.com</a></div>
+        <div class="t-line"><a href="tel:+9779843621667" style="color:var(--c);text-decoration:none;font-size:13px;">✆  +977-9843621667</a></div>
+        <div class="t-line" style="margin-top:12px"><span class="prompt">$ </span><span class="blink"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section id="skills">
+  <div class="sh rev"><span class="sh-num">02</span><h2 class="sh-title">TECH_STACK</h2><div class="sh-line"></div></div>
+  <div class="skills-grid rev">
+    <div class="sk-group">
+      <div class="sg-head">Development</div>
+      <div class="sk-item"><div class="sk-row">ASP.NET Core</div><div class="sk-bar-bg"><div class="sk-bar" data-w="92"></div></div></div>
+      <div class="sk-item"><div class="sk-row">C#</div><div class="sk-bar-bg"><div class="sk-bar" data-w="90"></div></div></div>
+      <div class="sk-item"><div class="sk-row">RESTful API</div><div class="sk-bar-bg"><div class="sk-bar" data-w="88"></div></div></div>
+      <div class="sk-item"><div class="sk-row">jQuery / JS</div><div class="sk-bar-bg"><div class="sk-bar" data-w="80"></div></div></div>
+    </div>
+    <div class="sk-group">
+      <div class="sg-head">Database</div>
+      <div class="sk-item"><div class="sk-row">MySQL</div><div class="sk-bar-bg"><div class="sk-bar" data-w="88"></div></div></div>
+      <div class="sk-item"><div class="sk-row">PostgreSQL</div><div class="sk-bar-bg"><div class="sk-bar" data-w="85"></div></div></div>
+      <div class="sk-item"><div class="sk-row">SQL Server</div><div class="sk-bar-bg"><div class="sk-bar" data-w="87"></div></div></div>
+      <div class="sk-item"><div class="sk-row">DB Design</div><div class="sk-bar-bg"><div class="sk-bar" data-w="82"></div></div></div>
+    </div>
+    <div class="sk-group">
+      <div class="sg-head">Security</div>
+      <div class="sk-item"><div class="sk-row">Authentication</div><div class="sk-bar-bg"><div class="sk-bar" data-w="90"></div></div></div>
+      <div class="sk-item"><div class="sk-row">Authorization</div><div class="sk-bar-bg"><div class="sk-bar" data-w="88"></div></div></div>
+      <div class="sk-item"><div class="sk-row">Optimization</div><div class="sk-bar-bg"><div class="sk-bar" data-w="82"></div></div></div>
+    </div>
+    <div class="sk-group">
+      <div class="sg-head">DevOps</div>
+      <div class="sk-item"><div class="sk-row">Git</div><div class="sk-bar-bg"><div class="sk-bar" data-w="90"></div></div></div>
+      <div class="sk-item"><div class="sk-row">Docker</div><div class="sk-bar-bg"><div class="sk-bar" data-w="75"></div></div></div>
+      <div class="sk-item"><div class="sk-row">Windows IIS</div><div class="sk-bar-bg"><div class="sk-bar" data-w="85"></div></div></div>
+      <div class="sk-item"><div class="sk-row">Azure</div><div class="sk-bar-bg"><div class="sk-bar" data-w="70"></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECTS -->
+<section id="projects">
+  <div class="sh rev"><span class="sh-num">03</span><h2 class="sh-title">PROJECTS</h2><div class="sh-line"></div></div>
+  <div class="proj-grid">
+    <div class="proj rev">
+      <span class="proj-id">#001</span>
+      <h3>Meeting Management System</h3>
+      <p>Municipal application featuring role-based document workflows and hierarchy-based approvals.</p>
+      <div class="tags"><span class="tag">ASP.NET MVC</span><span class="tag">MySQL</span><span class="tag">Role-based Auth</span></div>
+    </div>
+    <div class="proj rev">
+      <span class="proj-id">#002</span>
+      <h3>School ERP</h3>
+      <p>Comprehensive system for online exams and monitoring student progress across multiple schools.</p>
+      <div class="tags"><span class="tag">ASP.NET MVC</span><span class="tag">Multitenancy</span><span class="tag">Role-based Auth</span></div>
+    </div>
+    <div class="proj rev">
+      <span class="proj-id">#003</span>
+      <h3>eCommerce Platform</h3>
+      <p>Complete eCommerce solution with product listings and secure online payment integration.</p>
+      <div class="tags"><span class="tag">ASP.NET Web API</span><span class="tag">Payment Gateway</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- EDUCATION -->
+<section id="education">
+  <div class="sh rev"><span class="sh-num">04</span><h2 class="sh-title">EDUCATION</h2><div class="sh-line"></div></div>
+  <div class="edu-list rev">
+    <div class="edu"><h3>Bachelors in Computer Application</h3><span>Tribhuvan University</span></div>
+    <div class="edu"><h3>Diploma in Information Technology</h3><span>Technical Institute</span></div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="sh rev"><span class="sh-num">05</span><h2 class="sh-title">CONTACT</h2><div class="sh-line"></div></div>
+  <div class="contact-grid rev">
+    <div>
+      <div class="form-group"><label>Name</label><input type="text" placeholder="your_name"/></div>
+      <div class="form-group"><label>Email</label><input type="email" placeholder="your@email.com"/></div>
+      <div class="form-group"><label>Message</label><textarea rows="5" placeholder="Hello Diwan..."></textarea></div>
+      <button class="btn" id="send-btn"><span id="send-txt">Send Message</span></button>
+    </div>
+    <div class="c-details">
+      <div class="ci"><div class="ci-icon">✉</div><div><div class="ci-lbl">Email</div><div class="ci-val"><a href="mailto:deewaan101@gmail.com">deewaan101@gmail.com</a></div></div></div>
+      <div class="ci"><div class="ci-icon">✆</div><div><div class="ci-lbl">Phone</div><div class="ci-val"><a href="tel:+9779843621667">+977-9843621667</a></div></div></div>
+      <div class="ci"><div class="ci-icon">◉</div><div><div class="ci-lbl">Location</div><div class="ci-val">Kathmandu, Nepal</div></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 <span>Diwan Adhikari</span> — All rights reserved.</p>
+  <p style="margin-top:6px;font-size:10px;letter-spacing:3px;color:var(--mt);">STATUS: <span>ONLINE</span> ▸ UPTIME: 100% ▸ NO ERRORS DETECTED</p>
+</footer>
+
+<script>
+/* ── BOOT ── */
+const bootLines=['b0','b1','b2','b3'];
+bootLines.forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),i*300+150));
+let p=0;
+const bpct=document.getElementById('bpct');
+const bfill=document.getElementById('bfill');
+const biv=setInterval(()=>{
+  p=Math.min(p+Math.random()*15,100);
+  bpct.textContent=Math.round(p)+'%';
+  bfill.style.width=p+'%';
+  if(p>=100)clearInterval(biv);
+},100);
+setTimeout(()=>{
+  const boot=document.getElementById('boot');
+  boot.classList.add('done');
+  setTimeout(()=>boot.style.display='none',800);
+},2200);
+
+/* ── CURSOR ── */
+const cur=document.getElementById('cursor'),dot=document.getElementById('cursor-dot'),tip=document.getElementById('tooltip');
+let mx=window.innerWidth/2,my=window.innerHeight/2,cx=mx,cy=my;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  dot.style.left=mx+'px';dot.style.top=my+'px';
+  const el=document.elementFromPoint(mx,my);
+  const tt=el&&el.closest('[data-tip]');
+  if(tt){tip.textContent=tt.dataset.tip;tip.style.left=(mx+18)+'px';tip.style.top=(my-6)+'px';tip.style.opacity='1';}
+  else tip.style.opacity='0';
+});
+document.addEventListener('mouseenter',e=>{
+  if(e.target.matches('a,button')){cur.style.width='32px';cur.style.height='32px';cur.style.borderColor='var(--a)';}
+},{capture:true});
+document.addEventListener('mouseleave',e=>{
+  if(e.target.matches('a,button')){cur.style.width='16px';cur.style.height='16px';cur.style.borderColor='var(--g)';}
+},{capture:true});
+(function anim(){
+  cx+=(mx-cx)*.16;cy+=(my-cy)*.16;
+  cur.style.left=cx+'px';cur.style.top=cy+'px';
+  requestAnimationFrame(anim);
+})();
+
+/* ── TRAIL ── */
+const tc=document.getElementById('trail-canvas');
+const tctx=tc.getContext('2d');
+function rTC(){tc.width=innerWidth;tc.height=innerHeight;}
+rTC();window.addEventListener('resize',rTC);
+const pts=[];
+const KANA='アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモ01アBCDE';
+document.addEventListener('mousemove',e=>{
+  for(let i=0;i<4;i++){
+    pts.push({
+      x:e.clientX,y:e.clientY,
+      vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,
+      life:1,size:Math.random()*3+1,
+      isChar:Math.random()<.45,
+      ch:KANA[Math.floor(Math.random()*KANA.length)]
+    });
+  }
+});
+(function drawTrail(){
+  tctx.clearRect(0,0,tc.width,tc.height);
+  for(let i=pts.length-1;i>=0;i--){
+    const p=pts[i];
+    p.life-=.05;p.x+=p.vx;p.y+=p.vy;p.vy+=.04;
+    if(p.life<=0){pts.splice(i,1);continue;}
+    tctx.globalAlpha=p.life*.85;
+    if(p.isChar){
+      tctx.fillStyle=`hsl(${115+p.life*30},100%,${48+p.life*22}%)`;
+      tctx.font=`${Math.round(p.size*4)}px 'Share Tech Mono'`;
+      tctx.fillText(p.ch,p.x,p.y);
+    } else {
+      tctx.fillStyle=`hsl(120,100%,${48+p.life*22}%)`;
+      tctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+    }
+  }
+  tctx.globalAlpha=1;
+  requestAnimationFrame(drawTrail);
+})();
+
+/* ── MATRIX RAIN ── */
+const mc=document.getElementById('matrix-canvas'),mctx=mc.getContext('2d');
+const FS=14;let cols2=[],drops2=[];
+function rMC(){mc.width=innerWidth;mc.height=innerHeight;cols2=Math.floor(mc.width/FS);drops2=Array.from({length:cols2},()=>Math.random()*-mc.height/FS);}
+rMC();window.addEventListener('resize',rMC);
+const CHARS='アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF';
+(function rain(){
+  mctx.fillStyle='rgba(5,5,5,.06)';mctx.fillRect(0,0,mc.width,mc.height);
+  mctx.font=FS+'px Share Tech Mono';
+  for(let i=0;i<cols2;i++){
+    const ch=CHARS[Math.floor(Math.random()*CHARS.length)];
+    const x=i*FS,y=drops2[i]*FS;
+    mctx.fillStyle='#ccffcc';mctx.fillText(ch,x,y);
+    if(y>FS){mctx.fillStyle='#00ff41';mctx.fillText(CHARS[Math.floor(Math.random()*CHARS.length)],x,y-FS);}
+    if(drops2[i]*FS>mc.height&&Math.random()>.975)drops2[i]=0;
+    drops2[i]+=.45;
+  }
+  setTimeout(()=>requestAnimationFrame(rain),38);
+})();
+
+/* ── CLICK RIPPLE + GLITCH ── */
+document.addEventListener('click',e=>{
+  const r=document.createElement('div');
+  r.className='ripple';
+  const sz=70;
+  Object.assign(r.style,{width:sz+'px',height:sz+'px',left:(e.clientX-sz/2)+'px',top:(e.clientY-sz/2)+'px'});
+  document.body.appendChild(r);
+  setTimeout(()=>r.remove(),600);
+});
+
+/* ── PROJECT GLITCH ON HOVER ── */
+document.querySelectorAll('.proj').forEach(p=>{
+  p.addEventListener('mouseenter',()=>{
+    p.style.animation='glitch1 .4s ease';
+    setTimeout(()=>p.style.animation='',400);
+  });
+});
+
+/* ── SCROLL REVEAL ── */
+const revs=document.querySelectorAll('.rev');
+const obs=new IntersectionObserver(en=>{en.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:.1});
+revs.forEach(el=>obs.observe(el));
+
+/* ── SKILL BARS ── */
+const barObs=new IntersectionObserver(en=>{
+  en.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.sk-bar').forEach(b=>b.style.width=b.dataset.w+'%');
+      barObs.unobserve(e.target);
+    }
+  });
+},{threshold:.2});
+document.querySelectorAll('.sk-group').forEach(g=>barObs.observe(g));
+
+/* ── TYPING HERO DESC (sound version called after boot) ── */
+setTimeout(()=>{ if(window._typeWithSound)window._typeWithSound(); else{
+  const df='Experienced full stack developer specializing in ASP.NET Core, Web APIs, and clean architecture. Building scalable, high-performance web applications.';
+  const de=document.getElementById('hero-desc');let ti=0;
+  const iv=setInterval(()=>{if(ti<df.length){de.innerHTML=df.slice(0,++ti)+'<span class="blink"></span>';}else{de.innerHTML=df;clearInterval(iv);}},18);
+}},2400);
+
+/* ── SEND BTN ── */
+document.getElementById('send-btn').addEventListener('click',function(){
+  const sp=document.getElementById('send-txt');
+  const seq=['TRANSMITTING...','ENCODING...','SENT ✓'];
+  let i=0;
+  const iv=setInterval(()=>{
+    sp.textContent=seq[i++];
+    if(i>=seq.length){clearInterval(iv);this.style.borderColor='var(--a)';this.style.color='var(--a)';}
+  },420);
+});
+
+/* ── ACTIVE NAV ── */
+const secList=document.querySelectorAll('section[id]');
+const navAs=document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll',()=>{
+  let cur2='';
+  secList.forEach(s=>{if(scrollY>=s.offsetTop-130)cur2=s.id;});
+  navAs.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur2));
+},{passive:true});
+
+/* ── VOICE READOUT (Web Speech API) ── */
+let voiceReady=false,voices=[];
+function loadVoices(){
+  voices=speechSynthesis.getVoices();
+  if(voices.length)voiceReady=true;
+}
+loadVoices();
+speechSynthesis.onvoiceschanged=loadVoices;
+
+let lastSpoken='',speakTimer=null;
+function speak(text){
+  if(!voiceReady||!text||text===lastSpoken)return;
+  lastSpoken=text;
+  clearTimeout(speakTimer);
+  speakTimer=setTimeout(()=>{ lastSpoken=''; },1800);
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  // prefer a robotic/british voice for retro feel
+  const preferred=voices.find(v=>/google us english|google uk english female|microsoft zira|samantha|karen/i.test(v.name))
+    || voices.find(v=>/en[-_]US|en[-_]GB/i.test(v.lang))
+    || voices[0];
+  if(preferred)u.voice=preferred;
+  u.rate=0.88;
+  u.pitch=0.7;   // lower pitch = more robotic
+  u.volume=0.9;
+  speechSynthesis.speak(u);
+}
+
+// play a short retro beep using Web Audio on hover
+let audioCtx=null;
+function beep(freq=880,dur=0.06,vol=0.08){
+  try{
+    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.type='square';
+    osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+    osc.start();osc.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+
+// click sound — deeper thunk
+function clickSound(){
+  try{
+    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.type='square';
+    osc.frequency.setValueAtTime(220,audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+0.12);
+    gain.gain.setValueAtTime(0.15,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.18);
+    osc.start();osc.stop(audioCtx.currentTime+0.2);
+  }catch(e){}
+}
+
+// typing beep per character
+function typeBeep(){
+  try{
+    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=audioCtx.createOscillator();
+    const gain=audioCtx.createGain();
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.type='square';
+    osc.frequency.setValueAtTime(600+Math.random()*300,audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.04,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.03);
+    osc.start();osc.stop(audioCtx.currentTime+0.04);
+  }catch(e){}
+}
+
+// Elements that speak on hover — selector : label
+const SPEAK_MAP=[
+  ['.nav-links a[href="#about"]',  'About'],
+  ['.nav-links a[href="#skills"]', 'Skills'],
+  ['.nav-links a[href="#projects"]','Projects'],
+  ['.nav-links a[href="#contact"]','Contact'],
+  ['#hero .btn:first-child',       'My Works'],
+  ['#hero .btn.btn-a',             'Contact Me'],
+  ['.sh-title',                    null],   // read its own text
+  ['.proj h3',                     null],   // read its own text
+  ['.sg-head',                     null],   // read its own text
+  ['.edu h3',                      null],
+  ['#send-btn',                    'Send Message'],
+  ['.nav-logo',                    'Diwan Adhikari dot E X E'],
+  ['.hero-name',                   'Diwan Adhikari'],
+  ['.hero-role',                   'Full Stack Developer and ASP dot NET Expert'],
+];
+
+SPEAK_MAP.forEach(([sel, label])=>{
+  document.querySelectorAll(sel).forEach(el=>{
+    el.addEventListener('mouseenter',()=>{
+      beep(700+Math.random()*200, 0.055);
+      const txt=label||el.textContent.trim().replace(/_/g,' ');
+      speak(txt);
+    });
+  });
+});
+
+// skill items — speak skill name
+document.querySelectorAll('.sk-row').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    beep(800,0.05);
+    speak(el.textContent.trim());
+  });
+});
+
+// tag chips speak on hover
+document.querySelectorAll('.tag').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    beep(1000,0.04,0.06);
+    speak(el.textContent.trim());
+  });
+});
+
+// click sound on all buttons/links
+document.addEventListener('click',e=>{
+  if(e.target.closest('a,button'))clickSound();
+},true);
+
+// patch typing effect to also beep
+const _origDescFull='Experienced full stack developer specializing in ASP.NET Core, Web APIs, and clean architecture. Building scalable, high-performance web applications.';
+// override typing loop with beep version
+const descEl2=document.getElementById('hero-desc');
+let ti2=0;
+// cancel the earlier typing by flag (we replace it cleanly after boot)
+window._typeWithSound=function(){
+  const iv=setInterval(()=>{
+    if(ti2<_origDescFull.length){
+      descEl2.innerHTML=_origDescFull.slice(0,++ti2)+'<span class="blink"></span>';
+      if(ti2%2===0)typeBeep();
+    } else { descEl2.innerHTML=_origDescFull; clearInterval(iv); }
+  },18);
+};
+</script>
+</body>
+</html>
