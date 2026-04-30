@@ -183,7 +183,26 @@ section{padding:100px 48px 60px;max-width:980px;margin:0 auto;position:relative;
 .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;}
 
 /* SKILLS */
-.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px;}
+/* .skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px;} */
+.skills-grid{
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+/* Tablet */
+@media (max-width: 900px){
+  .skills-grid{
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile */
+@media (max-width: 500px){
+  .skills-grid{
+    grid-template-columns: 1fr;
+  }
+}
 .sk-group{background:var(--bg2);border:1px solid var(--mt);padding:22px;transition:border-color .2s;}
 .sk-group:hover{border-color:var(--g);}
 .sg-head{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--a);letter-spacing:2px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--mt);}
@@ -414,11 +433,24 @@ footer span{color:var(--g);}
       <button class="btn" id="send-btn"><span id="send-txt">Send Message</span></button>
     </div>
     <div class="c-details">
-      <div class="ci"><div class="ci-icon">✉</div><div><div class="ci-lbl">Email</div><div class="ci-val"><a href="mailto:deewaan101@gmail.com">deewaan101@gmail.com</a></div></div></div>
+      <div class="ci">
+        <div class="ci-icon"> ✉</div>
+          <div>
+            <div class="ci-lbl">Email</div>
+            <div class="ci-val"> 
+              <a href="mailto:deewaan101@gmail.com">deewaan101@gmail.com</a></div>
+          </div></div>
       <div class="ci"><div class="ci-icon">✆</div><div><div class="ci-lbl">Phone</div><div class="ci-val"><a href="tel:+9779843621667">+977-9843621667</a></div></div></div>
-      <div class="ci"><div class="ci-icon">◉</div><div><div class="ci-lbl">Location</div><div class="ci-val">Kathmandu, Nepal</div></div></div>
+      <div class="ci"><div class="ci-icon">🗺</div><div><div class="ci-lbl">Location</div><div class="ci-val">Kathmandu, Nepal</div></div></div>
+       <div class="ci"><div class="ci-icon">◉</div><div><div class="ci-lbl">github</div><div class="ci-val">  <a href="https://github.com/DiwanAdhikari"> https://github.com/DiwanAdhikari </a> </div></div></div>
+   <div class="ci"><div class="ci-icon">📩</div><div><div class="ci-lbl">Resume</div><div class="ci-val">
+    <a href="resume.pdf" class="btn" download>  <span> download </span> </a>
+   </div>
+  </div>
+</div>
     </div>
   </div>
+  
 </section>
 
 <footer>
@@ -587,7 +619,6 @@ window.addEventListener('scroll',()=>{
   navAs.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur2));
 },{passive:true});
 
-/* ── VOICE READOUT (Web Speech API) ── */
 let voiceReady=false,voices=[];
 function loadVoices(){
   voices=speechSynthesis.getVoices();
@@ -604,18 +635,17 @@ function speak(text){
   speakTimer=setTimeout(()=>{ lastSpoken=''; },1800);
   speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
-  // prefer a robotic/british voice for retro feel
+
   const preferred=voices.find(v=>/google us english|google uk english female|microsoft zira|samantha|karen/i.test(v.name))
     || voices.find(v=>/en[-_]US|en[-_]GB/i.test(v.lang))
     || voices[0];
   if(preferred)u.voice=preferred;
   u.rate=0.88;
-  u.pitch=0.7;   // lower pitch = more robotic
+  u.pitch=0.9;   
   u.volume=0.9;
   speechSynthesis.speak(u);
 }
 
-// play a short retro beep using Web Audio on hover
 let audioCtx=null;
 function beep(freq=880,dur=0.06,vol=0.08){
   try{
@@ -631,7 +661,6 @@ function beep(freq=880,dur=0.06,vol=0.08){
   }catch(e){}
 }
 
-// click sound — deeper thunk
 function clickSound(){
   try{
     if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
@@ -647,7 +676,6 @@ function clickSound(){
   }catch(e){}
 }
 
-// typing beep per character
 function typeBeep(){
   try{
     if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
@@ -662,7 +690,6 @@ function typeBeep(){
   }catch(e){}
 }
 
-// Elements that speak on hover — selector : label
 const SPEAK_MAP=[
   ['.nav-links a[href="#about"]',  'About'],
   ['.nav-links a[href="#skills"]', 'Skills'],
@@ -670,9 +697,9 @@ const SPEAK_MAP=[
   ['.nav-links a[href="#contact"]','Contact'],
   ['#hero .btn:first-child',       'My Works'],
   ['#hero .btn.btn-a',             'Contact Me'],
-  ['.sh-title',                    null],   // read its own text
-  ['.proj h3',                     null],   // read its own text
-  ['.sg-head',                     null],   // read its own text
+  ['.sh-title',                    null],   
+  ['.proj h3',                     null],  
+  ['.sg-head',                     null],   
   ['.edu h3',                      null],
   ['#send-btn',                    'Send Message'],
   ['.nav-logo',                    'Diwan Adhikari dot E X E'],
@@ -690,7 +717,7 @@ SPEAK_MAP.forEach(([sel, label])=>{
   });
 });
 
-// skill items — speak skill name
+
 document.querySelectorAll('.sk-row').forEach(el=>{
   el.addEventListener('mouseenter',()=>{
     beep(800,0.05);
@@ -698,7 +725,7 @@ document.querySelectorAll('.sk-row').forEach(el=>{
   });
 });
 
-// tag chips speak on hover
+
 document.querySelectorAll('.tag').forEach(el=>{
   el.addEventListener('mouseenter',()=>{
     beep(1000,0.04,0.06);
@@ -706,17 +733,17 @@ document.querySelectorAll('.tag').forEach(el=>{
   });
 });
 
-// click sound on all buttons/links
+
 document.addEventListener('click',e=>{
   if(e.target.closest('a,button'))clickSound();
 },true);
 
-// patch typing effect to also beep
+
 const _origDescFull='Experienced full stack developer specializing in ASP.NET Core, Web APIs, and clean architecture. Building scalable, high-performance web applications.';
-// override typing loop with beep version
+
 const descEl2=document.getElementById('hero-desc');
 let ti2=0;
-// cancel the earlier typing by flag (we replace it cleanly after boot)
+
 window._typeWithSound=function(){
   const iv=setInterval(()=>{
     if(ti2<_origDescFull.length){
